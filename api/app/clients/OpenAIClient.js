@@ -1107,6 +1107,16 @@ ${convo}
     return (msg) => {
       if (msg.text != null && msg.text && msg.text.startsWith(':::thinking')) {
         msg.text = msg.text.replace(/:::thinking.*?:::/gs, '').trim();
+      } else if (msg.content != null) {
+        /** @type {import('@librechat/agents').MessageContentComplex} */
+        const newContent = [];
+        for (let part of msg.content) {
+          if (part.think != null) {
+            continue;
+          }
+          newContent.push(part);
+        }
+        msg.content = newContent;
       }
 
       return msg;
@@ -1270,6 +1280,29 @@ ${convo}
           addParams: this.options.addParams,
           modelOptions,
         });
+      }
+
+      /** Note: OpenAI Web Search models do not support any known parameters besdies `max_tokens` */
+      if (modelOptions.model && /gpt-4o.*search/.test(modelOptions.model)) {
+        const searchExcludeParams = [
+          'frequency_penalty',
+          'presence_penalty',
+          'temperature',
+          'top_p',
+          'top_k',
+          'stop',
+          'logit_bias',
+          'seed',
+          'response_format',
+          'n',
+          'logprobs',
+          'user',
+        ];
+
+        this.options.dropParams = this.options.dropParams || [];
+        this.options.dropParams = [
+          ...new Set([...this.options.dropParams, ...searchExcludeParams]),
+        ];
       }
 
       if (this.options.dropParams && Array.isArray(this.options.dropParams)) {

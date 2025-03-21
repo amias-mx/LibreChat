@@ -168,6 +168,7 @@ export enum AgentCapabilities {
   artifacts = 'artifacts',
   actions = 'actions',
   tools = 'tools',
+  chain = 'chain',
   ocr = 'ocr',
 }
 
@@ -234,6 +235,7 @@ export const agentsEndpointSChema = baseEndpointSchema.merge(
     /* agents specific */
     recursionLimit: z.number().optional(),
     disableBuilder: z.boolean().optional(),
+    maxRecursionLimit: z.number().optional(),
     capabilities: z
       .array(z.nativeEnum(AgentCapabilities))
       .optional()
@@ -244,6 +246,7 @@ export const agentsEndpointSChema = baseEndpointSchema.merge(
         AgentCapabilities.actions,
         AgentCapabilities.tools,
         AgentCapabilities.ocr,
+        AgentCapabilities.chain,
       ]),
   }),
 );
@@ -511,6 +514,7 @@ export type TStartupConfig = {
   appleLoginEnabled: boolean;
   openidLabel: string;
   openidImageUrl: string;
+  openidAutoRedirect: boolean;
   /** LDAP Auth Configuration */
   ldap?: {
     /** LDAP enabled */
@@ -827,28 +831,29 @@ export const supportsBalanceCheck = {
 };
 
 export const visionModels = [
-  'grok-3',
-  'grok-2-vision',
+  'qwen-vl',
   'grok-vision',
-  'gpt-4.5',
-  'gpt-4o',
+  'grok-2-vision',
+  'grok-3',
   'gpt-4o-mini',
-  'o1',
+  'gpt-4o',
   'gpt-4-turbo',
   'gpt-4-vision',
+  'o1',
+  'gpt-4.5',
   'llava',
   'llava-13b',
   'gemini-pro-vision',
   'claude-3',
-  'gemini-2.0',
-  'gemini-1.5',
   'gemini-exp',
+  'gemini-1.5',
+  'gemini-2.0',
   'moondream',
   'llama3.2-vision',
-  'llama-3.2-90b-vision',
   'llama-3.2-11b-vision',
-  'llama-3-2-90b-vision',
   'llama-3-2-11b-vision',
+  'llama-3.2-90b-vision',
+  'llama-3-2-90b-vision',
 ];
 export enum VisionModes {
   generative = 'generative',
@@ -1190,7 +1195,7 @@ export enum Constants {
   /** Key for the app's version. */
   VERSION = 'v0.7.7',
   /** Key for the Custom Config's version (librechat.yaml). */
-  CONFIG_VERSION = '1.2.2',
+  CONFIG_VERSION = '1.2.3',
   /** Standard value for the first message's `parentMessageId` value, to indicate no parent exists. */
   NO_PARENT = '00000000-0000-0000-0000-000000000000',
   /** Standard value for the initial conversationId before a request is sent */
