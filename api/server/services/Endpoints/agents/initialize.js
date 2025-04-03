@@ -1,5 +1,6 @@
 const { createContentAggregator, Providers } = require('@librechat/agents');
 const {
+  ErrorTypes,
   EModelEndpoint,
   getResponseSender,
   AgentCapabilities,
@@ -100,10 +101,24 @@ const primeResources = async (req, _attachments, _tool_resources) => {
 };
 
 /**
+ * @param  {...string | number} values
+ * @returns {string | number | undefined}
+ */
+function optionalChainWithEmptyCheck(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+  return values[values.length - 1];
+}
+
+/**
  * @param {object} params
  * @param {ServerRequest} params.req
  * @param {ServerResponse} params.res
  * @param {Agent} params.agent
+ * @param {Set<string>} [params.allowedProviders]
  * @param {object} [params.endpointOption]
  * @param {boolean} [params.isInitialAgent]
  * @returns {Promise<Agent>}
@@ -113,8 +128,14 @@ const initializeAgentOptions = async ({
   res,
   agent,
   endpointOption,
+  allowedProviders,
   isInitialAgent = false,
 }) => {
+  if (allowedProviders.size > 0 && !allowedProviders.has(agent.provider)) {
+    throw new Error(
+      `{ "type": "${ErrorTypes.INVALID_AGENT_PROVIDER}", "info": "${agent.provider}" }`,
+    );
+  }
   let currentFiles;
   /** @type {Array<MongoFile>} */
   const requestFiles = req.body.files ?? [];
@@ -200,12 +221,17 @@ const initializeAgentOptions = async ({
 
   const tokensModel =
     agent.provider === EModelEndpoint.azureOpenAI ? agent.model : agent.model_parameters.model;
-  const maxTokens = agent.model_parameters.maxOutputTokens ?? agent.model_parameters.maxTokens ?? 0;
-  const maxContextTokens =
-    agent.model_parameters.maxContextTokens ??
-    agent.max_context_tokens ??
-    getModelMaxTokens(tokensModel, providerEndpointMap[provider]) ??
-    4096;
+  const maxTokens = optionalChainWithEmptyCheck(
+    agent.model_parameters.maxOutputTokens,
+    agent.model_parameters.maxTokens,
+    0,
+  );
+  const maxContextTokens = optionalChainWithEmptyCheck(
+    agent.model_parameters.maxContextTokens,
+    agent.max_context_tokens,
+    getModelMaxTokens(tokensModel, providerEndpointMap[provider]),
+    4096,
+  );
   return {
     ...agent,
     tools,
@@ -245,6 +271,8 @@ const initializeClient = async ({ req, res, endpointOption }) => {
   }
 
   const agentConfigs = new Map();
+  /** @type {Set<string>} */
+  const allowedProviders = new Set(req?.app?.locals?.[EModelEndpoint.agents]?.allowedProviders);
 
   // Handle primary agent
   const primaryConfig = await initializeAgentOptions({
@@ -252,6 +280,7 @@ const initializeClient = async ({ req, res, endpointOption }) => {
     res,
     agent: primaryAgent,
     endpointOption,
+    allowedProviders,
     isInitialAgent: true,
   });
 
@@ -267,6 +296,7 @@ const initializeClient = async ({ req, res, endpointOption }) => {
         res,
         agent,
         endpointOption,
+        allowedProviders,
       });
       agentConfigs.set(agentId, config);
     }
